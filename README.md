@@ -2,7 +2,7 @@
 
 Swift package to create a *Perceptual Image Hash* from a source image. To use, do as follows:
 
-```
+```swift
 // Create manager only once, reuse throughout the app
 let hashManager = PerceptualHashManager()
 
