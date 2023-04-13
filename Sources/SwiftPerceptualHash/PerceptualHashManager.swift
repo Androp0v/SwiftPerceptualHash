@@ -10,7 +10,7 @@ import Metal
 import MetalKit
 import MetalPerformanceShaders
 
-class PerceptualHashManager {
+public class PerceptualHashManager {
     
     private let resizedSize: Int = 32
     private let dctSize: Int = 8
@@ -25,7 +25,7 @@ class PerceptualHashManager {
     
     // MARK: - Initialization
     
-    init() throws {
+    public init() throws {
                 
         // Get Metal device
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -87,7 +87,7 @@ class PerceptualHashManager {
     
     // MARK: - Hash
     
-    func perceptualHash(imageData: Data) async throws -> PerceptualHash? {
+    public func perceptualHash(imageData: Data) async throws -> PerceptualHash? {
         
         // Create command buffer
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {

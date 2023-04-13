@@ -7,9 +7,9 @@
 
 import Foundation
 
-struct PerceptualHash {
+public struct PerceptualHash {
     
-    let hexString: String
+    public let hexString: String
     
     init(binaryString: String) {
         let number = binaryString.withCString {

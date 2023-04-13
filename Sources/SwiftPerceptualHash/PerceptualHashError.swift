@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum PerceptualHashError: Error {
+public enum PerceptualHashError: Error, LocalizedError {
     case metalDeviceCreationFailed
     case makeDefaultLibraryFailed
     case makeGrayscaleKernelFailed
@@ -15,10 +15,8 @@ enum PerceptualHashError: Error {
     case createResizedTextureFailed(Int)
     case createGrayscaleResizedTextureFailed(Int)
     case makeCommandQueueFailed
-}
 
-extension PerceptualHashError: LocalizedError {
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .metalDeviceCreationFailed:
             return "Metal device creation failed!"
