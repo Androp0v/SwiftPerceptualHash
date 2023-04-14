@@ -1,6 +1,8 @@
 # SwiftPerceptualHash
 
-Swift package to create a *Perceptual Image Hash* from a source image. To use, do as follows:
+Swift package to create a *Perceptual Image Hash* from a source image. Perceptual Image Hashes output similar hashes for similar images, which allows for easy duplicate image detection that is robust to different compression algorithms or image sizes.
+
+## How to use
 
 ```swift
 // Create manager only once, reuse throughout the app
@@ -15,3 +17,20 @@ let hash = hashManager.perceptualHash(imageData: imageData)
 // You can get different String representations from the hash. For example:
 print(hash.hexString) // 2879bv9r58qsv
 ```
+
+## Algorithm overview
+
+### Original image
+![OriginalImage](Images/Original.png)
+
+### Low-pass filter
+![LowPassImage](Images/LowPass.png)
+
+### Downsampling
+![Downsampled](Images/Downsampled.png)
+
+### Discrete Cosine Transform (DCT)
+![DCT](Images/DCT.png)
+
+### Hash
+![Hash](Images/Hash.png)
