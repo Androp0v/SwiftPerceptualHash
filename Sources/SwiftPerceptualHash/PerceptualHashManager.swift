@@ -112,7 +112,7 @@ public class PerceptualHashManager {
         
         // Blur the image to get rid of all the high-frequency features that could
         // result in aliasing in the downsampled image
-        let blur = MPSImageGaussianBlur(device: device, sigma: Float(1 / (2 * max(scaleX, scaleY))))
+        let blur = MPSImageGaussianBlur(device: device, sigma: Float(1 / (2 * min(scaleX, scaleY))))
         withUnsafeMutablePointer(to: &sourceImageTexture) { texturePointer in
             _ = blur.encode(commandBuffer: commandBuffer, inPlaceTexture: texturePointer)
         }
