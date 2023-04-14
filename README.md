@@ -15,8 +15,10 @@ let imageData = UIImage(named: "SampleImage".png)!.pngData()
 let hash = hashManager.perceptualHash(imageData: imageData)
 
 // You can get different String representations from the hash. For example:
-print(hash.hexString) // 2879bv9r58qsv
+print(hash.stringValue) // 2879bv9r58qsv
 ```
+
+Visually similar images will have similar or identical hashes, which we can use to check if two images are the same (duplicate).
 
 ## Project structure
 
@@ -44,11 +46,11 @@ The image is then downsampled in the GPU using a bilinear filter to a 32x32 pixe
 
 ### Discrete Cosine Transform (DCT)
 A Discrete Cosine Transform (DCT) is then applied to the 32x32 image. You're probably better off trying to understand how a DCT works anywhere else than me explaining it here. Key things to know is that upper-left corner contains the low-frequency information and the bottom-right corner contains the high-frequency information. The "perceptual" part of the image hashing is based on the low-frequency part, so despite the DCT using the full 32x32 texture to compute the coefficients, only the upper 8x8 coefficients of the DCT matrix are computed.
-The basic formula is:
+The basic formula (with the notation used in the code) is:
 
 ![DCT_Equation](Images/DCT_Equation.png)
 
-Where `u`, `v` make a 8x8 image (range: `[0 to 8)`).
+Where `u`, `v` make a 8x8 image (range: `[0 to 8)`) and `i`, `j` iterate over the 32x32 image (range: `[0 to 32)`), and `pixel(i,j)` is the grayscale value of the pixel in the 32x32 image at the i-th row and j-th column.
 
 ![DCT](Images/DCT.png)
 
@@ -57,3 +59,5 @@ To compute the hash from the 8x8 DCT, the `[0,0]` value is set to `0.0`, essenti
 ![Hash](Images/Hash.png)
 
 Similar images have similar hashes. The first sample image and its heavily compressed version share the same hash, but the slightly cropped + color adjusted image has a slightly different hash. The last image, which is completely different, has a completely different hash.
+
+All that's left is to compute a string value from the 8x8 hash matrix. To get a binary representation, we start with an empty string, iterate over the 8x8 matrix, and append a "1" or "0" to the string. We'll end up with something like `"1001001001111111011011011111011000111111111101110111101010111101"`. We could stop there, but it's probably not optimal to store 64 bits of information in a 64-character long string. Instead, we encode that "binary string" using a base-36 encoding, ending up with something like this: `"2879bvhn9r2kd"`, which is the value that can be accessed using the `.stringValue` of the `PerceptualHash` result. This value can now be computed for several images and check for duplicates by comparing the strings.
