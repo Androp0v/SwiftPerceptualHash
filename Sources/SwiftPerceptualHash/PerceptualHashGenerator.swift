@@ -10,23 +10,59 @@ import Metal
 import MetalKit
 import MetalPerformanceShaders
 
-public class PerceptualHashManager {
+/// Class used to generate a `PerceptualHash`. A `PerceptualHash` is a hash used to
+/// compare how similar two images are. Two images are identical if their hashes are the same.
+/// Similar images will have similar hashes, and completely different images will have completely
+/// different hashes.
+///
+/// Create a `PerceptualHashGenerator` once, and reuse it throughout the app. Initializing
+/// this class creates a bunch of Metal objects that are expensive to create but can be reused to
+/// compute hashes for different images.
+public class PerceptualHashGenerator {
     
-    private let resizedSize: Int = 32
-    private let dctSize: Int = 8
+    /// The size of the DCT matrix used to generate the hash. A hash will require `pow(dctSize,2)`
+    /// bits to be stored. Defaults to a 8x8 matrix, to generate 64-bit hashes.
+    public let dctSize: Int
+    /// The size the image will be resized to before the DCT is computed. Defaults to a 32x32 image.
+    public let resizedSize: Int
     
+    /// The system's default Metal device.
     private let device: MTLDevice
+    /// The command queue.
     private let commandQueue: MTLCommandQueue
+    /// The Pipeline State Object of a grayscale kernel.
     private let grayscalePSO: MTLComputePipelineState
-    
+    /// Used to load a `MTLTexture` from image data.
     private let textureLoader: MTKTextureLoader
+    /// The intermediate, resized image texture used to compute the DCT.
     private let resizedTexture: MTLTexture
+    /// The intermediate, resized image texture used to compute the DCT, in grayscale.
     private let grayscaleTexture: MTLTexture
     
     // MARK: - Initialization
     
-    public init() throws {
-                
+    /// Initializes a `PerceptualHashGenerator` with a specific configuration.
+    /// - Parameters:
+    ///   - resizedSize: The size the image will be resized to before the DCT is computed.
+    ///   Defaults to a 32x32 image. Bigger sizes can allow for more precise image comparisons,
+    ///   as more high-frequency data is preserved.
+    ///   - dctSize: The size of the DCT matrix used to generate the hash. Bigger sizes can
+    ///   allow for more precise image comparisons, as more high-frequency data is preserved.
+    public init(resizedSize: Int = 32, dctSize: Int = 8) throws {
+        
+        // Check against wrong parameter configurations
+        guard resizedSize > 0 else {
+            throw PerceptualHashError.negativeOrZeroResizedSize
+        }
+        guard dctSize > 1 else {
+            throw PerceptualHashError.wrongDCTSize
+        }
+        guard resizedSize >= dctSize else {
+            throw PerceptualHashError.resizedSizeTooSmallForDCTSize
+        }
+        self.resizedSize = resizedSize
+        self.dctSize = dctSize
+        
         // Get Metal device
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw PerceptualHashError.metalDeviceCreationFailed
@@ -87,6 +123,9 @@ public class PerceptualHashManager {
     
     // MARK: - Hash
     
+    /// Creates a `PerceptualHash` for an image using its raw data.
+    /// - Parameter imageData: The raw data for the image.
+    /// - Returns: A `PerceptualHash` object, used to check how similar two images are.
     public func perceptualHash(imageData: Data) async throws -> PerceptualHash? {
         
         // Create command buffer

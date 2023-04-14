@@ -15,6 +15,9 @@ import Foundation
 /// As with any hashing algorithm, collisions can happen, where two completely different images end
 /// up with the same hash. This happens because, while there's an infinite number of images, a
 /// `PerceptualHash` has a fixed number of bits to represent all of them.
+///
+/// Two hashes can only be compared if they have been generated using the same
+/// `PerceptualHashGenerator` configuration.
 public struct PerceptualHash: Equatable {
     
     private let blocks: [UInt64]
@@ -48,10 +51,11 @@ public struct PerceptualHash: Equatable {
     
     // MARK: - Init
     
-    /// You typically don't call this initializer directly. Instead, you use a method from the `PerceptualHashManager`
+    /// You typically don't call this initializer directly. Instead, you use a method from the `PerceptualHashGenerator`
     /// class to get a object of this type.
     /// - Parameter binaryString: A binary representation of the perceptual hash (i.e. "1001001").
     public init(binaryString: String) {
+        
         var blocks = [UInt64]()
         
         // Get the number of characters in the string. Since each character
@@ -62,6 +66,7 @@ public struct PerceptualHash: Equatable {
         
         // Number of blocks with full 64-bit numbers
         let fullBlockCount = numberOfBits / 64
+        
         // The string size might not be a multiple of 64
         let remainder = numberOfBits % 64
         

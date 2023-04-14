@@ -8,6 +8,9 @@
 import Foundation
 
 public enum PerceptualHashError: Error, LocalizedError {
+    case wrongDCTSize
+    case negativeOrZeroResizedSize
+    case resizedSizeTooSmallForDCTSize
     case metalDeviceCreationFailed
     case makeDefaultLibraryFailed
     case makeGrayscaleKernelFailed
@@ -32,6 +35,12 @@ public enum PerceptualHashError: Error, LocalizedError {
             return "Failed to create \(size)x\(size) grayscale resized texture."
         case .makeCommandQueueFailed:
             return "Failed to create command queue!"
+        case .wrongDCTSize:
+            return "Discrete Cosine Transform (DCT) matrix can't be smaller than 2x2."
+        case .negativeOrZeroResizedSize:
+            return "Intermediate resized image matrix can't have negative or zero size."
+        case .resizedSizeTooSmallForDCTSize:
+            return "Intermediate resized image matrix can't be smaller than the DCT matrix."
         }
     }
 }
