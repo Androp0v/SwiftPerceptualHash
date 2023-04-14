@@ -21,7 +21,7 @@ print(hash.hexString) // 2879bv9r58qsv
 ## Algorithm overview
 
 ### Original image
-![OriginalImage](Images/Original.png)
+![OriginalImage](Sources/Images/Original.png)
 
 ### Low-pass filter
 ![LowPassImage](Images/LowPass.png)
