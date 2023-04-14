@@ -9,13 +9,13 @@ import Foundation
 
 public struct PerceptualHash {
     
-    public let hexString: String
+    public let stringValue: String
     
     init(binaryString: String) {
         let number = binaryString.withCString {
             // String to Unsigned long
             strtoul($0, nil, 2)
         }
-        self.hexString = String(number, radix: 36, uppercase: false)
+        self.stringValue = String(number, radix: 36, uppercase: false)
     }
 }

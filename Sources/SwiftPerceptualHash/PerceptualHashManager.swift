@@ -96,7 +96,7 @@ public class PerceptualHashManager {
         }
         
         // Create the source image texture
-        let sourceImageTexture = try await self.textureLoader.newTexture(
+        var sourceImageTexture = try await self.textureLoader.newTexture(
             data: imageData,
             options: [
                 MTKTextureLoader.Option.textureUsage: MTLTextureUsage.unknown.rawValue,
@@ -104,13 +104,26 @@ public class PerceptualHashManager {
             ]
         )
         
+        // Compute the x and y axis scales required to resize the image
+        let scaleX = Double(resizedSize) / Double(sourceImageTexture.width)
+        let scaleY = Double(resizedSize) / Double(sourceImageTexture.height)
+        
+        // MARK: - Gaussian blur
+        
+        // Blur the image to get rid of all the high-frequency features that could
+        // result in aliasing in the downsampled image
+        let blur = MPSImageGaussianBlur(device: device, sigma: Float(1 / (2 * max(scaleX, scaleY))))
+        withUnsafeMutablePointer(to: &sourceImageTexture) { texturePointer in
+            _ = blur.encode(commandBuffer: commandBuffer, inPlaceTexture: texturePointer)
+        }
+        
         // MARK: - Resize
         
         // Resize the image to target 32x32 resolution
         let resize = MPSImageBilinearScale(device: device)
         var transform = MPSScaleTransform(
-            scaleX: Double(resizedSize) / Double(sourceImageTexture.width),
-            scaleY: Double(resizedSize) / Double(sourceImageTexture.height),
+            scaleX: scaleX,
+            scaleY: scaleY,
             translateX: 0.0,
             translateY: 0.0
         )
