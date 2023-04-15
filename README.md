@@ -42,6 +42,7 @@ To avoid aliasing issues when the image is downsampled, a gaussian kernel (actin
 
 ### Downsampling
 The image is then downsampled in the GPU using a bilinear filter to a 32x32 pixels texture and the color information is removed. Grayscale conversion uses a Rec. 709 Luma coefficient for no particular reason (we had to pick a grayscale conversion, it doesn't matter much which one).
+
 ![Downsampled](Images/Downsampled.png)
 
 ### Discrete Cosine Transform (DCT)
@@ -56,8 +57,10 @@ Where `u`, `v` make a 8x8 image (range: `[0 to 8)`) and `i`, `j` iterate over th
 
 ### Hash
 To compute the hash from the 8x8 DCT, the `[0,0]` value is set to `0.0`, essentially removing any constant component throughout the image. Then, the mean of the 8x8 matrix is computed. The, for each value in the matrix, a "1" is written if the DCT of that position was greater than the mean, and a "0" is written otherwise.
+
 ![Hash](Images/Hash.png)
 
 Similar images have similar hashes. The first sample image and its heavily compressed version share the same hash, but the slightly cropped + color adjusted image has a slightly different hash. The last image, which is completely different, has a completely different hash.
 
-All that's left is to compute a string value from the 8x8 hash matrix. To get a binary representation, we start with an empty string, iterate over the 8x8 matrix, and append a "1" or "0" to the string. We'll end up with something like `"1001001001111111011011011111011000111111111101110111101010111101"`. We could stop there, but it's probably not optimal to store 64 bits of information in a 64-character long string. Instead, we encode that "binary string" using a base-36 encoding, ending up with something like this: `"2879bvhn9r2kd"`, which is the value that can be accessed using the `.stringValue` of the `PerceptualHash` result. This value can now be computed for several images and check for duplicates by comparing the strings.
+All that's left is to compute a string value from the 8x8 hash matrix. To get a binary representation, we start with an empty string, iterate over the 8x8 matrix, and append a "1" or "0" to the string. We'll end up with something like `"1001001001111111011011011111011000111111111101110111101010111101"`. 
+We could stop there, but it's probably not optimal to store 64 bits of information in a 64-character long string. Instead, we encode that "binary string" using a base-36 encoding, ending up with something like this: `"2879bvhn9r2kd"`, which is the value that can be accessed using the `.stringValue` of the `PerceptualHash` result. This value can now be computed for several images and check for duplicates by comparing the strings.

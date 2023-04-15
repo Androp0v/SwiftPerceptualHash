@@ -20,12 +20,17 @@ import MetalPerformanceShaders
 /// compute hashes for different images.
 public class PerceptualHashGenerator {
     
+    // MARK: - Properties
+    
     /// The size of the DCT matrix used to generate the hash. A hash will require `pow(dctSize,2)`
     /// bits to be stored. Defaults to a 8x8 matrix, to generate 64-bit hashes.
     public let dctSize: Int
     /// The size the image will be resized to before the DCT is computed. Defaults to a 32x32 image.
     public let resizedSize: Int
     
+    /// The maximum number of command buffers that can be used simultaneously. Each call to
+    /// `perceptualHash(imageData: Data)` creates a new command buffer.
+    private let maxCommandBufferCount: Int = 128
     /// The system's default Metal device.
     private let device: MTLDevice
     /// The command queue.
@@ -34,10 +39,26 @@ public class PerceptualHashGenerator {
     private let grayscalePSO: MTLComputePipelineState
     /// Used to load a `MTLTexture` from image data.
     private let textureLoader: MTKTextureLoader
-    /// The intermediate, resized image texture used to compute the DCT.
-    private let resizedTexture: MTLTexture
-    /// The intermediate, resized image texture used to compute the DCT, in grayscale.
-    private let grayscaleTexture: MTLTexture
+    /// An actor to manage the intermediate textures creation.
+    private let intermediateTextureHandler = IntermediateTextureHandler()
+    /// An actor to limit the number of concurrent tasks using the command buffer.
+    private let concurrencyLimiter = ConcurrencyLimiter()
+    
+    internal class IntermediateTextures {
+        /// Unique identifier for the group of textures.
+        internal let id = UUID()
+        /// Whether the current texture group is being used in a command buffer.
+        internal var inUse: Bool = false
+        /// The intermediate, resized image texture used to compute the DCT.
+        internal let color: MTLTexture
+        /// The intermediate, resized image texture used to compute the DCT, in grayscale.
+        internal let grayscale: MTLTexture
+        
+        init(color: MTLTexture, grayscale: MTLTexture) {
+            self.color = color
+            self.grayscale = grayscale
+        }
+    }
     
     // MARK: - Initialization
     
@@ -88,6 +109,29 @@ public class PerceptualHashGenerator {
         // Create a texture loader
         self.textureLoader = MTKTextureLoader(device: device)
         
+        // Create command queue
+        guard let commandQueue = device.makeCommandQueue(
+            maxCommandBufferCount: maxCommandBufferCount
+        ) else {
+            throw PerceptualHashError.makeCommandQueueFailed
+        }
+        self.commandQueue = commandQueue
+        
+        // Generate a set of intermediate textures
+        Task {
+            _ = try await self.intermediateTextureHandler.getNext(
+                generator: self,
+                device: device,
+                resizedSize: resizedSize,
+                maxCommandBufferCount: maxCommandBufferCount
+            )
+        }
+    }
+    
+    // MARK: - IntermediateTextures
+    
+    /// Creates a new set of `IntermediateTextures` with the given configuration options.
+    internal func createIntermediateTextures(device: MTLDevice, resizedSize: Int) throws -> IntermediateTextures {
         // Create small intermediate texture
         let resizedTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
@@ -99,7 +143,6 @@ public class PerceptualHashGenerator {
         guard let resizedTexture = device.makeTexture(descriptor: resizedTextureDescriptor) else {
             throw PerceptualHashError.createResizedTextureFailed(resizedSize)
         }
-        self.resizedTexture = resizedTexture
         
         // Create small intermediate texture (grayscale)
         let grayscaleTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -112,21 +155,25 @@ public class PerceptualHashGenerator {
         guard let grayscaleTexture = device.makeTexture(descriptor: grayscaleTextureDescriptor) else {
             throw PerceptualHashError.createGrayscaleResizedTextureFailed(resizedSize)
         }
-        self.grayscaleTexture = grayscaleTexture
-        
-        // Create command queue
-        guard let commandQueue = device.makeCommandQueue() else {
-            throw PerceptualHashError.makeCommandQueueFailed
-        }
-        self.commandQueue = commandQueue
+        return IntermediateTextures(color: resizedTexture, grayscale: grayscaleTexture)
     }
-    
-    // MARK: - Hash
+        
+    // MARK: - Hashing
     
     /// Creates a `PerceptualHash` for an image using its raw data.
     /// - Parameter imageData: The raw data for the image.
     /// - Returns: A `PerceptualHash` object, used to check how similar two images are.
     public func perceptualHash(imageData: Data) async throws -> PerceptualHash? {
+        
+        // Before calling makeCommandBuffer, we have to ensure that no more than
+        // the maximum number of tasks are running, or makeCommandBuffer will
+        // block, potentially deadlocking our Swift Concurrency code.
+        await concurrencyLimiter.newRunningTask(maxCommandBufferCount: maxCommandBufferCount)
+        defer {
+            Task {
+                await concurrencyLimiter.endRunningTask()
+            }
+        }
         
         // Create command buffer
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
@@ -158,6 +205,22 @@ public class PerceptualHashGenerator {
         
         // MARK: - Resize
         
+        // Get a current set of intermediate textures or create a new one
+        let intermediateTextures = try await intermediateTextureHandler.getNext(
+            generator: self,
+            device: device,
+            resizedSize: resizedSize,
+            maxCommandBufferCount: maxCommandBufferCount
+        )
+        intermediateTextures.inUse = true
+        defer {
+            intermediateTextures.inUse = false
+            Task(priority: .background) {
+                try await Task.sleep(nanoseconds: 10_000_000_000)
+                await intermediateTextureHandler.freeUnused()
+            }
+        }
+        
         // Resize the image to target 32x32 resolution
         let resize = MPSImageBilinearScale(device: device)
         var transform = MPSScaleTransform(
@@ -172,7 +235,7 @@ public class PerceptualHashGenerator {
         resize.encode(
             commandBuffer: commandBuffer,
             sourceTexture: sourceImageTexture,
-            destinationTexture: resizedTexture
+            destinationTexture: intermediateTextures.color
         )
         
         // MARK: - Grayscale
@@ -187,16 +250,16 @@ public class PerceptualHashGenerator {
         computeEncoder.setComputePipelineState(grayscalePSO)
         
         // Set the source texture
-        computeEncoder.setTexture(resizedTexture, index: 0)
+        computeEncoder.setTexture(intermediateTextures.color, index: 0)
         
         // Set the output texture
-        computeEncoder.setTexture(grayscaleTexture, index: 1)
+        computeEncoder.setTexture(intermediateTextures.grayscale, index: 1)
         
         // Dispatch the threads
         let threadgroupSize = MTLSizeMake(16, 16, 1)
         var threadgroupCount = MTLSize()
-        threadgroupCount.width  = (resizedTexture.width + threadgroupSize.width - 1) / threadgroupSize.width
-        threadgroupCount.height = (resizedTexture.height + threadgroupSize.height - 1) / threadgroupSize.height
+        threadgroupCount.width  = (intermediateTextures.color.width + threadgroupSize.width - 1) / threadgroupSize.width
+        threadgroupCount.height = (intermediateTextures.color.height + threadgroupSize.height - 1) / threadgroupSize.height
         // The image data is 2D, so set depth to 1
         threadgroupCount.depth = 1
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
@@ -207,8 +270,10 @@ public class PerceptualHashGenerator {
         // MARK: - Finish
         
         let binaryStringHash = await withCheckedContinuation { continuation in
-            commandBuffer.addCompletedHandler { _ in
-                let binaryStringHash = self.computeDCT(grayscaleTexture: self.grayscaleTexture)
+            commandBuffer.addCompletedHandler { [intermediateTextures] _ in
+                let binaryStringHash = self.computeDCT(
+                    grayscaleTexture: intermediateTextures.grayscale
+                )
                 continuation.resume(returning: binaryStringHash)
             }
             // Submit work to the GPU
@@ -253,6 +318,7 @@ public class PerceptualHashGenerator {
                         pixel_row_sum += pixelValue
                             * cos((Float.pi * (2.0 * Float(j) + 1.0) * Float(u)) / (2.0 * Float(resizedSize)))
                     }
+                    // Now along the column axis
                     pixel_row_sum *= cos((Float.pi * (2.0 * Float(i) + 1.0) * Float(v)) / (2.0 * Float(resizedSize)))
                     pixel_sum += pixel_row_sum
                 }
