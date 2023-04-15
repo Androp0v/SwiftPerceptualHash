@@ -36,7 +36,7 @@ At the beginning, the image is imported to a `MTLTexture` at its full size. Here
 ![OriginalImage](Images/Original.png)
 
 ### Low-pass filter
-To avoid aliasing issues when the image is downsampled, a gaussian kernel (acting as a low-pass filter) removes all the high-frequency information from the image that could cause aliasing issues when downsampling the image. The σ of the gaussian kernel is computed as `σ = 1 / ( 2 * maxScaleFactor )`, where `minScaleFactor` is the scale factor required to transform the full size image to the 32x32 size used in the next step (downsampling). If the image is not square, we conservatively apply the blur with the minimum radius (the one with the minimum scale factor).
+To avoid aliasing issues when the image is downsampled, a gaussian kernel (acting as a low-pass filter) removes all the high-frequency information from the image that could cause aliasing issues when downsampling the image. The σ of the gaussian kernel is computed as `σ = 1 / ( 2 * maxScaleFactor )`, where `maxScaleFactor` is the scale factor required to transform the full size image to the 32x32 size used in the next step (downsampling). If the image is not square, we conservatively apply the blur with the minimum radius (the one with the minimum scale factor).
 
 ![LowPassImage](Images/LowPass.png)
 
