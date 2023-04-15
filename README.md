@@ -18,7 +18,7 @@ let hash = hashGenerator.perceptualHash(imageData: imageData)
 print(hash.stringValue) // 2879bv9r58qsv
 ```
 
-Visually similar images will have similar or identical hashes, which we can use to check if two images are the same (duplicate).
+Visually similar images will have similar or identical hashes, which we can use to check if two images are the same (duplicate). You can compare hashes directly using the equality operator (`hashA == hashB`) or you can use the `similarity(hashA, hashB)` function to get a floating point value (ranging from 0 to 1) that expresses how similar two hashes are (0 for completely different hashes, and 1 for identical hashes).
 
 ## Project structure
 
