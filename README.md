@@ -64,3 +64,9 @@ Similar images have similar hashes. The first sample image and its heavily compr
 
 All that's left is to compute a string value from the 8x8 hash matrix. To get a binary representation, we start with an empty string, iterate over the 8x8 matrix, and append a "1" or "0" to the string. We'll end up with something like `"1001001001111111011011011111011000111111111101110111101010111101"`. 
 We could stop there, but it's probably not optimal to store 64 bits of information in a 64-character long string. Instead, we encode that "binary string" using a base-36 encoding, ending up with something like this: `"2879bvhn9r2kd"`, which is the value that can be accessed using the `.stringValue` of the `PerceptualHash` result. This value can now be computed for several images and check for duplicates by comparing the strings.
+
+## Further reading
+- [pHash.org](http://www.phash.org)
+- [Implementation and Benchmarking of Perceptual Image Hash Functions (Christoph Zauner)](http://www.phash.org/docs/pubs/thesis_zauner.pdf)
+- [Discrete Cosine Transform for 8x8 Blocks with CUDA (NVIDIA)](https://developer.download.nvidia.com/assets/cuda/files/dct8x8.pdf)
+- [DCT Implementation on GPU (Serpil Tokdemir, Georgia State University)](https://core.ac.uk/download/71421787.pdf)
