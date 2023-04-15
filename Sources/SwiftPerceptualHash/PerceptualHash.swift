@@ -20,7 +20,8 @@ import Foundation
 /// `PerceptualHashGenerator` configuration.
 public struct PerceptualHash: Equatable {
     
-    private let blocks: [UInt64]
+    public let numberOfBits: Int
+    public let blocks: [UInt64]
     
     // MARK: - Strings
     
@@ -87,6 +88,48 @@ public struct PerceptualHash: Equatable {
         }
         
         // Save the blocks
+        self.numberOfBits = numberOfBits
         self.blocks = blocks
     }
+}
+
+// MARK: - Comparison
+
+/// The difference between two hashes, using the Hamming distance.
+///
+/// Values range from `0.0` (most dissimilar) to `1.0` (identical).
+/// Hashes generated with different configurations that maintain the same number of bits (like
+/// a different `resizedSize` in `PerceptualHashGenerator`) are not comparable,
+/// but no error will be thrown.
+/// - Parameters:
+///   - lhs: The first `PerceptualHash`.
+///   - rhs: The second `PerceptualHash`.
+/// - Throws: Both hashes must have the same number of bits, or an error will be thrown.
+/// - Returns: The similarity between the two hashes. A value of `1.0` means that the
+/// hashes are identical, while a value of `0.0` means the two hashes are as different from
+/// each other as possible.
+public func similarity(_ lhs: PerceptualHash, _ rhs: PerceptualHash) throws -> Double {
+    
+    // Make sure that the left hand side and right hand side have the
+    // same number of bits.
+    guard lhs.numberOfBits == rhs.numberOfBits else {
+        throw PerceptualHashError.numberOfBitsMismatch
+    }
+    
+    // Set a counter for the number of bits that are different.
+    var differingBitCounter = 0
+    
+    // Iterate over all the stored blocks
+    for i in 0..<lhs.blocks.count {
+        var differentBits = lhs.blocks[i] ^ rhs.blocks[i]
+        while differentBits > 0 {
+            let maskedBits = differentBits & 1
+            if maskedBits != 0 {
+                differingBitCounter += 1
+            }
+            // Right-shift bits to test next bit.
+            differentBits = differentBits >> 1
+        }
+    }
+    return 1.0 - Double(differingBitCounter) / Double(lhs.numberOfBits)
 }

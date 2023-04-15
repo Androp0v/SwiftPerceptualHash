@@ -18,6 +18,7 @@ public enum PerceptualHashError: Error, LocalizedError {
     case createResizedTextureFailed(Int)
     case createGrayscaleResizedTextureFailed(Int)
     case makeCommandQueueFailed
+    case numberOfBitsMismatch
 
     public var errorDescription: String? {
         switch self {
@@ -41,6 +42,8 @@ public enum PerceptualHashError: Error, LocalizedError {
             return "Intermediate resized image matrix can't have negative or zero size."
         case .resizedSizeTooSmallForDCTSize:
             return "Intermediate resized image matrix can't be smaller than the DCT matrix."
+        case .numberOfBitsMismatch:
+            return "Number of bits of the two hashes does not match. Hashes with different number of bits can't be compared."
         }
     }
 }
