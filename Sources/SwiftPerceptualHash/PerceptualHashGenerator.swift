@@ -155,7 +155,7 @@ public class PerceptualHashGenerator {
     /// Creates a `PerceptualHash` for an image using its raw data.
     /// - Parameter imageData: The raw data for the image.
     /// - Returns: A `PerceptualHash` object, used to check how similar two images are.
-    public func perceptualHash(imageData: Data) async throws -> PerceptualHash? {
+    public func perceptualHash(imageData: Data) async throws -> PerceptualHash {
         
         // Before calling makeCommandBuffer, we have to ensure that no more than
         // the maximum number of tasks are running, or makeCommandBuffer will
@@ -234,8 +234,7 @@ public class PerceptualHashGenerator {
         
         // Create compute command encoder
         guard let computeEncoder = commandBuffer.makeComputeCommandEncoder() else {
-            print("Failed to create compute command encoder!")
-            return nil
+            throw PerceptualHashError.makeComputeCommandEncoderFailed
         }
         
         // Set the PSO to perform a grayscale conversion

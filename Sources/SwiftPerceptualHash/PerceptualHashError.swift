@@ -20,6 +20,7 @@ public enum PerceptualHashError: Error, LocalizedError {
     case createGrayscaleResizedTextureFailed(Int)
     case makeCommandQueueFailed
     case makeCommandBufferFailed
+    case makeComputeCommandEncoderFailed
     case unsupportedSourceImagePixelFormat(MTLPixelFormat)
     case numberOfBitsMismatch
 
@@ -47,6 +48,8 @@ public enum PerceptualHashError: Error, LocalizedError {
             return "Intermediate resized image matrix can't be smaller than the DCT matrix."
         case .makeCommandBufferFailed:
             return "Failed to create command buffer!"
+        case .makeComputeCommandEncoderFailed:
+            return "Failed to create compute command encoder!"
         case .unsupportedSourceImagePixelFormat(let pixelFormat):
             return "Unsupported source image MTLPixelFormat: \(pixelFormat)"
         case .numberOfBitsMismatch:
