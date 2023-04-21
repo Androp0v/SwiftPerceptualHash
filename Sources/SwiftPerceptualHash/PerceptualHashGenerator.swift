@@ -39,8 +39,6 @@ public class PerceptualHashGenerator {
     private let grayscalePSO: MTLComputePipelineState
     /// Used to load a `MTLTexture` from image data.
     private let textureLoader: MTKTextureLoader
-    /// An actor to manage the intermediate textures creation.
-    private let intermediateTextureHandler = IntermediateTextureHandler()
     /// An actor to limit the number of concurrent tasks using the command buffer.
     private let concurrencyLimiter = ConcurrencyLimiter()
     
@@ -116,25 +114,19 @@ public class PerceptualHashGenerator {
             throw PerceptualHashError.makeCommandQueueFailed
         }
         self.commandQueue = commandQueue
-        
-        // Generate a set of intermediate textures
-        Task {
-            _ = try await self.intermediateTextureHandler.getNext(
-                generator: self,
-                device: device,
-                resizedSize: resizedSize,
-                maxCommandBufferCount: maxCommandBufferCount
-            )
-        }
     }
     
     // MARK: - IntermediateTextures
     
     /// Creates a new set of `IntermediateTextures` with the given configuration options.
-    internal func createIntermediateTextures(device: MTLDevice, resizedSize: Int) throws -> IntermediateTextures {
+    internal func createIntermediateTextures(
+        device: MTLDevice,
+        resizedSize: Int,
+        pixelFormat: MTLPixelFormat
+    ) throws -> IntermediateTextures {
         // Create small intermediate texture
         let resizedTextureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
+            pixelFormat: pixelFormat,
             width: resizedSize,
             height: resizedSize,
             mipmapped: false
@@ -177,8 +169,7 @@ public class PerceptualHashGenerator {
         
         // Create command buffer
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
-            print("Failed to create command buffer!")
-            return nil
+            throw PerceptualHashError.makeCommandBufferFailed
         }
         
         // Create the source image texture
@@ -189,6 +180,16 @@ public class PerceptualHashGenerator {
                 MTKTextureLoader.Option.textureStorageMode: MTLStorageMode.shared.rawValue
             ]
         )
+        guard sourceImageTexture.pixelFormat == .bgra8Unorm_srgb
+                || sourceImageTexture.pixelFormat == .bgra8Unorm
+                || sourceImageTexture.pixelFormat == .rgba16Unorm
+                || sourceImageTexture.pixelFormat == .rgba8Unorm_srgb
+                || sourceImageTexture.pixelFormat == .rgba8Unorm
+                || sourceImageTexture.pixelFormat == .rgba8Sint
+                || sourceImageTexture.pixelFormat == .rgba8Snorm
+        else {
+            throw PerceptualHashError.unsupportedSourceImagePixelFormat(sourceImageTexture.pixelFormat)
+        }
         
         // Compute the x and y axis scales required to resize the image
         let scaleX = Double(resizedSize) / Double(sourceImageTexture.width)
@@ -198,7 +199,7 @@ public class PerceptualHashGenerator {
         
         // Blur the image to get rid of all the high-frequency features that could
         // result in aliasing in the downsampled image
-        let blur = MPSImageGaussianBlur(device: device, sigma: Float(1 / max(scaleX, scaleY)))
+        let blur = MPSImageGaussianBlur(device: device, sigma: Float(1 / (2 * max(scaleX, scaleY))))
         withUnsafeMutablePointer(to: &sourceImageTexture) { texturePointer in
             _ = blur.encode(commandBuffer: commandBuffer, inPlaceTexture: texturePointer)
         }
@@ -206,20 +207,11 @@ public class PerceptualHashGenerator {
         // MARK: - Resize
         
         // Get a current set of intermediate textures or create a new one
-        let intermediateTextures = try await intermediateTextureHandler.getNext(
-            generator: self,
+        let intermediateTextures = try createIntermediateTextures(
             device: device,
             resizedSize: resizedSize,
-            maxCommandBufferCount: maxCommandBufferCount
+            pixelFormat: sourceImageTexture.pixelFormat
         )
-        intermediateTextures.inUse = true
-        defer {
-            intermediateTextures.inUse = false
-            Task(priority: .background) {
-                try await Task.sleep(nanoseconds: 10_000_000_000)
-                await intermediateTextureHandler.freeUnused()
-            }
-        }
         
         // Resize the image to target 32x32 resolution
         let resize = MPSImageBilinearScale(device: device)

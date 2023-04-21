@@ -56,7 +56,7 @@ Where `u`, `v` make a 8x8 image (range: `[0 to 8)`) and `i`, `j` iterate over th
 ![DCT](Images/DCT.png)
 
 ### Hash
-To compute the hash from the 8x8 DCT, the `[0,0]` value is set to `0.0`, essentially removing any constant component throughout the image. Then, the mean of the 8x8 matrix is computed. The, for each value in the matrix, a "1" is written if the DCT of that position was greater than the mean, and a "0" is written otherwise.
+To compute the hash from the 8x8 DCT, the `[0,0]` value is set to `0.0`, essentially removing any constant component throughout the image. Then, the mean of the 8x8 matrix is computed. Then, for each value in the matrix, a "1" is written if the DCT of that position was greater than the mean, and a "0" is written otherwise.
 
 ![Hash](Images/Hash.png)
 

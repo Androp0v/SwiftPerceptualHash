@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Metal
 
 public enum PerceptualHashError: Error, LocalizedError {
     case wrongDCTSize
@@ -18,6 +19,8 @@ public enum PerceptualHashError: Error, LocalizedError {
     case createResizedTextureFailed(Int)
     case createGrayscaleResizedTextureFailed(Int)
     case makeCommandQueueFailed
+    case makeCommandBufferFailed
+    case unsupportedSourceImagePixelFormat(MTLPixelFormat)
     case numberOfBitsMismatch
 
     public var errorDescription: String? {
@@ -42,6 +45,10 @@ public enum PerceptualHashError: Error, LocalizedError {
             return "Intermediate resized image matrix can't have negative or zero size."
         case .resizedSizeTooSmallForDCTSize:
             return "Intermediate resized image matrix can't be smaller than the DCT matrix."
+        case .makeCommandBufferFailed:
+            return "Failed to create command buffer!"
+        case .unsupportedSourceImagePixelFormat(let pixelFormat):
+            return "Unsupported source image MTLPixelFormat: \(pixelFormat)"
         case .numberOfBitsMismatch:
             return "Number of bits of the two hashes does not match. Hashes with different number of bits can't be compared."
         }
