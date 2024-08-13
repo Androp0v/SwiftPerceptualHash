@@ -89,7 +89,9 @@ public class PerceptualHashGenerator {
         self.device = device
         
         // Get the default library
-        guard let defaultLibrary = device.makeDefaultLibrary() else {
+        do {
+            let defaultLibrary = try device.makeDefaultLibrary(bundle: .module)    
+        } catch {
             throw PerceptualHashError.makeDefaultLibraryFailed
         }
         
