@@ -89,9 +89,7 @@ public class PerceptualHashGenerator {
         self.device = device
         
         // Get the default library
-        do {
-            let defaultLibrary = try device.makeDefaultLibrary(bundle: .module)    
-        } catch {
+        guard let defaultLibrary = try? device.makeDefaultLibrary(bundle: .module) else {
             throw PerceptualHashError.makeDefaultLibraryFailed
         }
         
@@ -155,7 +153,7 @@ public class PerceptualHashGenerator {
     // MARK: - Hashing
     
     /// Creates a `PerceptualHash` for an image using its raw data.
-    /// - Parameter imageData: The raw data for the image.
+    /// - Parameter imageData: The raw data for the image. Make sure that the image orientation is `.up`.
     /// - Returns: A `PerceptualHash` object, used to check how similar two images are.
     public func perceptualHash(imageData: Data) async throws -> PerceptualHash {
         
